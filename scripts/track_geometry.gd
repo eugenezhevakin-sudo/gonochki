@@ -82,7 +82,12 @@ func _road(parent: Node3D, label: String, mesh: ArrayMesh) -> void:
     body.add_child(appearance)
     var solid := CollisionShape3D.new()
     solid.name = "PhysicalSurface"
-    solid.shape = mesh.create_trimesh_shape()
+    # Two-sided surface collision: prototypes may contain differently wound
+    # polygons, especially at closed joins. Without this, the car can fall
+    # through asphalt and become wedged below it.
+    var surface_shape: ConcavePolygonShape3D = mesh.create_trimesh_shape()
+    surface_shape.backface_collision = true
+    solid.shape = surface_shape
     body.add_child(solid)
 
 func _add_visual_kerbs(path: PackedVector2Array, road_width: float) -> void:
@@ -199,13 +204,13 @@ func generate(track_id: String) -> bool:
     var collision := CollisionShape3D.new()
     collision.name = "RunoffCollision"
     var box := BoxShape3D.new()
-    box.size = Vector3(bounds.size.x + 260.0, 0.6, bounds.size.y + 260.0)
+    box.size = Vector3(bounds.size.x + 260.0, 1.26, bounds.size.y + 260.0)
     collision.shape = box
     runoff.add_child(collision)
     var ground := MeshInstance3D.new()
     ground.name = "GroundVisualOnly"
     ground.mesh = ground_mesh
-    ground.position.y = 0.31
+    ground.position.y = 0.63
     runoff.add_child(ground)
     _add_visual_kerbs(track_path, ROAD_WIDTH)
     _add_start_stripe(track_path)
@@ -233,7 +238,7 @@ func start_transform() -> Transform3D:
     var p: Vector2 = track_path[0]
     var heading: Vector2 = (track_path[1] - track_path[0]).normalized()
     var rotation_y: float = atan2(-heading.x, -heading.y)
-    return Transform3D(Basis(Vector3.UP, rotation_y), Vector3(p.x, 2.2, p.y))
+    return Transform3D(Basis(Vector3.UP, rotation_y), Vector3(p.x, 0.8, p.y))
 
 func overview_camera() -> void:
     var bounds: Rect2 = Atlas.bounds(track_path)
