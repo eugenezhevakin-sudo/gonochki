@@ -91,6 +91,10 @@ jobs:
         shell: bash
         run: timeout --signal=TERM --kill-after=10s 120s godot --headless --path . --script res://tests/ui_smoke.gd
 
+      - name: Drive 3 real prototype circuits, brake, reset and test cameras
+        shell: bash
+        run: timeout --signal=TERM --kill-after=10s 120s godot --headless --path . --script res://tests/driving_smoke.gd
+
       - name: Export and verify debug-signed Android ARM64 APK
         shell: bash
         run: |
@@ -99,19 +103,19 @@ jobs:
           export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$HOME/.android/debug.keystore"
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER='androiddebugkey'
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD='android'
-          godot --headless --path . --export-debug Android build/APEX_GRID_Track_Lab_32_Debug.apk
-          test -s build/APEX_GRID_Track_Lab_32_Debug.apk
-          unzip -t build/APEX_GRID_Track_Lab_32_Debug.apk | tail -n 2
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/APEX_GRID_Track_Lab_32_Debug.apk
-          sha256sum build/APEX_GRID_Track_Lab_32_Debug.apk | tee build/APEX_GRID_Track_Lab_32_Debug.apk.sha256
+          godot --headless --path . --export-debug Android build/APEX_GRID_Track_Lab_Driving_32_Debug.apk
+          test -s build/APEX_GRID_Track_Lab_Driving_32_Debug.apk
+          unzip -t build/APEX_GRID_Track_Lab_Driving_32_Debug.apk | tail -n 2
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/APEX_GRID_Track_Lab_Driving_32_Debug.apk
+          sha256sum build/APEX_GRID_Track_Lab_Driving_32_Debug.apk | tee build/APEX_GRID_Track_Lab_Driving_32_Debug.apk.sha256
 
       - name: Upload installable APK and checksum
         uses: actions/upload-artifact@v4
         with:
           name: APEX-GRID-Track-Lab-Android-APK
           path: |
-            build/APEX_GRID_Track_Lab_32_Debug.apk
-            build/APEX_GRID_Track_Lab_32_Debug.apk.sha256
+            build/APEX_GRID_Track_Lab_Driving_32_Debug.apk
+            build/APEX_GRID_Track_Lab_Driving_32_Debug.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
@@ -124,11 +128,11 @@ jobs:
           set -euo pipefail
           TAG="track-lab-test-${{ github.run_number }}"
           gh release create "$TAG" \
-            build/APEX_GRID_Track_Lab_32_Debug.apk \
-            build/APEX_GRID_Track_Lab_32_Debug.apk.sha256 \
+            build/APEX_GRID_Track_Lab_Driving_32_Debug.apk \
+            build/APEX_GRID_Track_Lab_Driving_32_Debug.apk.sha256 \
             --repo "${{ github.repository }}" \
             --target "$GITHUB_SHA" \
             --prerelease \
-            --title "APEX GRID Track Lab · 32 track prototype #${{ github.run_number }}" \
-            --notes "Standalone geometry experiment: 32 circuits, 2D diagrams, 3D physical road and pit mesh, mobile test-drive car. NOT the private full 22-car racing game; circuit geometry and pit joins are still unverified."
+            --title "APEX GRID Track Lab · 32 circuit driving test #${{ github.run_number }}" \
+            --notes "Standalone geometry experiment: 32 circuits, 2D diagrams, 3D collidable road, low-poly open-wheel driving with braking/steering, 3 cameras and lap timers. Experimental standalone public prototype. NOT the private full 22-car racing game; circuit geometry and pit joins are still unverified."
           gh release view "$TAG" --repo "${{ github.repository }}" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'

@@ -38,6 +38,10 @@ func _run() -> void:
     var buttons: Control = game.get_node_or_null("Layout/DriveControls")
     _expect(buttons != null and buttons.visible,
         "Android touch controls visible in drive mode")
+    var camera: Button = game.get_node_or_null("Layout/DriveControls/CameraMode")
+    _expect(camera != null and camera.visible, "driving camera toggle present")
+    var progress: ProgressBar = game.get_node_or_null("Layout/LapProgress")
+    _expect(progress != null and progress.visible, "lap progress indicator present")
     game.call("change_mode", "map")
     await process_frame
     _expect(map_view.visible and not buttons.visible,

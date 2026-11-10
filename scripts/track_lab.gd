@@ -1,9 +1,10 @@
 extends Control
-## Public standalone atlas-test UI. Does not import any private racing scripts.
+## Public standalone 32-circuit geometry/race-feel test, not production F1 code.
 const Atlas = preload("res://scripts/atlas.gd")
 const MapView = preload("res://scripts/map_view.gd")
 const TrackGeometry = preload("res://scripts/track_geometry.gd")
 const Driver = preload("res://scripts/test_driver.gd")
+const LapTiming = preload("res://scripts/lap_timing.gd")
 
 var chooser: OptionButton
 var map_view: Control
@@ -13,10 +14,14 @@ var world: Node3D
 var controls: HBoxContainer
 var info: Label
 var telemetry: Label
+var progress_bar: ProgressBar
+var camera_button: Button
 var geometry: Node3D
-var car
+var car: CharacterBody3D
+var lap_tracker: RefCounted
 var mode := "map"
 var selected_id := "silverstone_gp"
+var camera_mode := 0
 
 func _label(text_value: String, font_size: int = 18) -> Label:
     var label := Label.new()
@@ -28,7 +33,8 @@ func _label(text_value: String, font_size: int = 18) -> Label:
 func _button(text_value: String, min_width: float = 126.0) -> Button:
     var button := Button.new()
     button.text = text_value
-    button.custom_minimum_size = Vector2(min_width, 46.0)
+    button.custom_minimum_size = Vector2(min_width, 52.0)
+    button.focus_mode = Control.FOCUS_NONE
     button.add_theme_font_size_override("font_size", 17)
     return button
 
@@ -38,6 +44,7 @@ func _ready() -> void:
     bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(bg)
+
     var outer := VBoxContainer.new()
     outer.name = "Layout"
     outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -50,15 +57,15 @@ func _ready() -> void:
 
     var header := HBoxContainer.new()
     header.name = "Header"
-    header.custom_minimum_size.y = 56
-    header.add_theme_constant_override("separation", 8)
+    header.custom_minimum_size.y = 54
+    header.add_theme_constant_override("separation", 7)
     outer.add_child(header)
-    var brand := _label("APEX GRID  ·  TRACK LAB", 24)
-    brand.custom_minimum_size.x = 305.0
+    var brand := _label("APEX GRID · TRACK LAB", 23)
+    brand.custom_minimum_size.x = 280.0
     header.add_child(brand)
     chooser = OptionButton.new()
     chooser.name = "CircuitSelector"
-    chooser.custom_minimum_size = Vector2(285.0, 47.0)
+    chooser.custom_minimum_size = Vector2(250.0, 48.0)
     chooser.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     var tracks: Array = Atlas.records()
     for index in range(tracks.size()):
@@ -68,20 +75,20 @@ func _ready() -> void:
     chooser.item_selected.connect(_on_track_selected)
     header.add_child(chooser)
 
-    var map_button := _button("2D-СХЕМА")
+    var map_button := _button("2D-КАРТА", 120)
     map_button.name = "MapMode"
     map_button.pressed.connect(func(): change_mode("map"))
     header.add_child(map_button)
-    var preview_button := _button("3D-ОСМОТР")
+    var preview_button := _button("3D-ОСМОТР", 135)
     preview_button.name = "PreviewMode"
     preview_button.pressed.connect(func(): change_mode("preview"))
     header.add_child(preview_button)
-    var drive_button := _button("ТЕСТ-ДРАЙВ", 145.0)
+    var drive_button := _button("ЗАЕЗД", 126)
     drive_button.name = "DriveMode"
     drive_button.pressed.connect(func(): change_mode("drive"))
     header.add_child(drive_button)
 
-    info = _label("", 17)
+    info = _label("", 16)
     info.name = "CircuitInfo"
     outer.add_child(info)
 
@@ -111,29 +118,42 @@ func _ready() -> void:
 
     controls = HBoxContainer.new()
     controls.name = "DriveControls"
-    controls.custom_minimum_size.y = 61
-    controls.add_theme_constant_override("separation", 12)
+    controls.custom_minimum_size.y = 70
+    controls.add_theme_constant_override("separation", 7)
     outer.add_child(controls)
-    _hold_button("◀ ПОВОРОТ", "left_turn")
-    _hold_button("ПОВОРОТ ▶", "right_turn")
+    _hold_button("◀ РУЛЬ", "left_turn")
+    _hold_button("РУЛЬ ▶", "right_turn")
     _hold_button("ГАЗ", "throttle")
     _hold_button("ТОРМОЗ", "braking")
-    var reset := _button("СБРОС", 125)
+    camera_button = _button("КАМЕРА 1/3", 150)
+    camera_button.name = "CameraMode"
+    camera_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    camera_button.pressed.connect(cycle_camera)
+    controls.add_child(camera_button)
+    var reset := _button("СБРОС", 114)
     reset.name = "ResetCar"
-    reset.pressed.connect(func():
-        if is_instance_valid(car):
-            car.call("respawn"))
+    reset.pressed.connect(_reset_drive)
     controls.add_child(reset)
     controls.visible = false
+
+    progress_bar = ProgressBar.new()
+    progress_bar.name = "LapProgress"
+    progress_bar.custom_minimum_size.y = 9.0
+    progress_bar.min_value = 0.0
+    progress_bar.max_value = 100.0
+    progress_bar.value = 0.0
+    progress_bar.show_percentage = false
+    progress_bar.visible = false
+    outer.add_child(progress_bar)
 
     var bottom := HBoxContainer.new()
     bottom.name = "Footer"
     outer.add_child(bottom)
-    telemetry = _label("Готово", 15)
+    telemetry = _label("Готово", 16)
     telemetry.name = "Telemetry"
     telemetry.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     bottom.add_child(telemetry)
-    var credit := _label("Tomislav Bacinger (MIT) · © OpenStreetMap contributors (ODbL)", 13)
+    var credit := _label("Tomislav Bacinger (MIT) · © OpenStreetMap (ODbL)", 12)
     bottom.add_child(credit)
 
     var starting_index := 0
@@ -145,9 +165,10 @@ func _ready() -> void:
     change_mode("map")
 
 func _hold_button(label_value: String, field: String) -> void:
-    var button := _button(label_value, 142.0)
+    var button := _button(label_value, 136)
     button.name = "Hold_" + field
     button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    button.keep_pressed_outside = true
     button.button_down.connect(func(): _set_car_input(field, true))
     button.button_up.connect(func(): _set_car_input(field, false))
     controls.add_child(button)
@@ -171,6 +192,8 @@ func select_track(id: String) -> void:
 func change_mode(next_mode: String) -> void:
     if next_mode != "map" and next_mode != "preview" and next_mode != "drive":
         return
+    if is_instance_valid(car):
+        car.call("reset_inputs")
     mode = next_mode
     var record: Dictionary = Atlas.get_track(selected_id)
     if record.is_empty():
@@ -183,24 +206,26 @@ func change_mode(next_mode: String) -> void:
     map_view.visible = mode == "map"
     scene_panel.visible = mode != "map"
     controls.visible = mode == "drive"
+    progress_bar.visible = mode == "drive"
     if mode == "map":
         map_view.call("set_track", selected_id)
-        telemetry.text = "2D-схема · выбор трассы сверху · не проверена для гонок"
+        telemetry.text = "2D-схема · все трассы являются черновыми геометрическими моделями"
         return
     _prepare_3d()
     telemetry.text = (
-        "Тест-драйв · газ/тормоз/повороты · W/A/S/D · трасса без ограждений"
+        "ЗАЕЗД · W/A/S/D или экранные кнопки · камера · сброс"
         if mode == "drive" else
-        "3D-черновик · физические дорожные поверхности · высоты и пит не сертифицированы")
+        "3D-осмотр · дорожные коллизии · окружение и пит-лейн не сертифицированы")
 
 func _prepare_3d() -> void:
     for previous in world.get_children():
+        world.remove_child(previous)
         previous.queue_free()
     car = null
     geometry = TrackGeometry.new()
     geometry.name = "SelectedCircuit"
     world.add_child(geometry)
-    if not geometry.call("generate", selected_id):
+    if not bool(geometry.call("generate", selected_id)):
         telemetry.text = "Ошибка построения трассы"
         return
     if mode == "drive":
@@ -210,18 +235,74 @@ func _prepare_3d() -> void:
         var spawn: Transform3D = geometry.call("start_transform")
         car.set("respawn_transform", spawn)
         car.global_transform = spawn
-        var cam: Camera3D = geometry.get("camera")
-        cam.size = 110.0
+        lap_tracker = LapTiming.new()
+        lap_tracker.call("configure", geometry.get("track_path"))
+        camera_mode = 0
+        camera_button.text = "КАМЕРА 1/3"
+        _update_follow_camera(0.0, true)
 
-func _process(_delta: float) -> void:
+func _reset_drive() -> void:
+    if is_instance_valid(car):
+        car.call("respawn")
+    if lap_tracker != null:
+        lap_tracker.call("reset_run")
+    progress_bar.value = 0.0
+    _update_follow_camera(0.0, true)
+
+func cycle_camera() -> void:
+    if mode != "drive" or not is_instance_valid(car):
+        return
+    camera_mode = (camera_mode + 1) % 3
+    camera_button.text = "КАМЕРА %d/3" % (camera_mode + 1)
+    _update_follow_camera(0.0, true)
+
+func _update_follow_camera(delta: float, instant: bool = false) -> void:
+    if not is_instance_valid(car) or not is_instance_valid(geometry):
+        return
+    var cam: Camera3D = geometry.get("camera")
+    if not is_instance_valid(cam):
+        return
+    cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+    cam.fov = 76.0 if camera_mode == 0 else (83.0 if camera_mode == 1 else 65.0)
+    var center: Vector3 = car.global_position
+    var forward: Vector3 = -car.global_transform.basis.z
+    var target: Vector3
+    var gaze: Vector3
+    if camera_mode == 0:
+        target = center - forward * 11.5 + Vector3.UP * 5.0
+        gaze = center + forward * 18.0 + Vector3.UP * 1.0
+    elif camera_mode == 1:
+        target = center + forward * 0.25 + Vector3.UP * 0.84
+        gaze = center + forward * 22.0 + Vector3.UP * 0.80
+    else:
+        target = center - forward * 4.0 + Vector3.UP * 48.0
+        gaze = center + forward * 5.0
+    var blend: float = 1.0 if instant else clampf(delta * 7.5, 0.0, 1.0)
+    cam.global_position = cam.global_position.lerp(target, blend)
+    cam.look_at(gaze, Vector3.UP)
+
+func _physics_process(_delta: float) -> void:
+    if mode == "drive" and is_instance_valid(car) and lap_tracker != null:
+        lap_tracker.call("update_position", car.global_position,
+            bool(car.get("last_on_track")))
+
+func _process(delta: float) -> void:
     if mode == "drive" and is_instance_valid(car) and is_instance_valid(geometry):
-        var follow_cam: Camera3D = geometry.get("camera")
-        if is_instance_valid(follow_cam):
-            var target: Vector3 = car.global_position
-            follow_cam.position = target + Vector3(0.0, 52.0, 40.0)
-            follow_cam.look_at(target, Vector3.UP)
-        var car_speed: float = float(car.get("speed_mps"))
-        telemetry.text = "ТЕСТ-ДРАЙВ  ·  %.0f км/ч  |  FPS: %d  |  СБРОС при съезде с асфальта" % [
-            absf(car_speed) * 3.6, Engine.get_frames_per_second()]
+        _update_follow_camera(delta)
+        var kmh: float = float(car.call("get_speed_kmh"))
+        var gear: int = int(car.get("automatic_gear"))
+        var gear_text := "R" if gear < 0 else str(gear)
+        var lap_number: int = int(lap_tracker.get("laps")) + 1
+        var current_seconds: float = float(lap_tracker.get("current_lap_s"))
+        var best_seconds: float = float(lap_tracker.get("best_lap_s"))
+        var progress: float = float(lap_tracker.get("fraction"))
+        var good: bool = bool(lap_tracker.get("lap_valid"))
+        var valid_label := "" if good else " · КРУГ НЕЗАЧЁТ"
+        var current_time: String = str(LapTiming.format_time(current_seconds))
+        var best_time: String = str(LapTiming.format_time(best_seconds))
+        progress_bar.value = progress * 100.0
+        telemetry.text = "%.0f км/ч · %s передача · Круг %d · %s · Лучший %s · FPS %d%s" % [
+            kmh, gear_text, lap_number, current_time, best_time,
+            Engine.get_frames_per_second(), valid_label]
     elif mode == "preview":
-        telemetry.text = "3D-ОСМОТР  ·  FPS: %d  |  геометрия не проверена для гоночного режима" % Engine.get_frames_per_second()
+        telemetry.text = "3D-ОСМОТР · FPS %d · модель трассы без проверки безопасности" % Engine.get_frames_per_second()
