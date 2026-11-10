@@ -39,6 +39,10 @@ func _execute() -> void:
         var achieved: float = float(car.call("get_speed_kmh"))
         var distance: float = Vector2(car.global_position.x,
             car.global_position.z).distance_to(Vector2(initial.x, initial.z))
+        print("DRIVE PROBE ", circuit, " start=", initial, " finish=", car.global_position,
+            " distance=", distance, " kmh=", achieved, " velocity=", car.velocity,
+            " floor=", car.is_on_floor(), " wall=", car.is_on_wall(),
+            " surface=", str(car.get("track_surface")))
         _expect(achieved > 25.0, circuit + " accelerates under real physics ticks")
         _expect(distance > 8.0, circuit + " moves along a road in 3D")
         car.set("braking", true)
