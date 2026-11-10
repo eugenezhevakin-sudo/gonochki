@@ -17,14 +17,14 @@ func _run() -> void:
     root.add_child(game)
     await process_frame
     var selector: OptionButton = game.get_node_or_null("Layout/Header/CircuitSelector")
-    _expect(selector != null and selector.item_count == 23,
-        "23 options available in Android dropdown")
+    _expect(selector != null and selector.item_count == 32,
+        "32 options available in Android dropdown")
     var map_view: Control = game.get_node_or_null("Layout/View/MapPreview")
     _expect(map_view != null and map_view.visible,
         "2D map is safe initial mode")
-    game.call("select_track", "suzuka_gp")
-    _expect(str(game.get("selected_id")) == "suzuka_gp",
-        "Suzuka changes via selector")
+    game.call("select_track", "jeddah_gp")
+    _expect(str(game.get("selected_id")) == "jeddah_gp",
+        "Jeddah changes via selector")
     game.call("change_mode", "preview")
     await process_frame
     var road: Node = game.get_node_or_null(

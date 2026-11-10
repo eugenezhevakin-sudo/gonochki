@@ -4,23 +4,25 @@
 
 ## What you can test
 
-- **23 circuit outlines** from the separately developed Formula Manager atlas, including 23 pit paths, kilometre scale, and rough grandstands/garage positions.
+- **32 circuit outlines**: the original 23 Formula Manager layouts (including Sepang, Malaysia), plus nine heritage/extra circuits sourced directly from Tomislav Bacinger's MIT-licensed f1-circuits GeoJSON, including Jeddah, Portimão, Estoril, Istanbul Park, Paul Ricard, Magny-Cours, Hockenheimring, Nürburgring GP and Sochi. Each includes a provisional pit path and illustrative garages/stands.
 - **2D overview** to compare the centerline, entry/exit and locations.
 - **3D prototype** with procedurally generated 13 m asphalt ribbon and 6 m pit ribbon, collisions, indicative buildings, and a simple terrain plane.
 - **Free-drive test car** with touch buttons for throttle/brake/steering (WASD/arrows on PC), respawn, camera follow and FPS readout.
-- Choose any circuit from the dropdown. Tracks load individually; there is no large 23-track race scene to keep in Android memory.
+- Choose any circuit from the dropdown. Tracks load individually; there is no large 32-track race scene to keep in Android memory.
 
 ## Important limits
 
-This is a **track laboratory**, not the latest full release of APEX GRID. Production 22-car AI, accurate racing physics, qualifying, timing, saves and championship logic are **not included**. The tracks are **not race certified**: flat terrain, approximate width, unverified pit joints, no complete barriers or runoff, and Suzuka's raised crossing is an unmeasured visual approximation. The experimental car is not the production Formula 1 car.
+This is a **track laboratory**, not the latest full release of APEX GRID. Production 22-car AI, accurate racing physics, qualifying, timing, saves and championship logic are **not included**. The tracks are **not race certified**: flat terrain, approximate width, unverified pit joints, no complete barriers or runoff, and Suzuka's raised crossing is an unmeasured visual approximation. **All nine newly added pit paths and garage/stand footprints are synthetic placeholders**, offset near the timing line; they do not represent surveyed pit lanes or official track architecture. You can test map rendering and approximate surface continuity, not realistic pit entry. The experimental car is not the production Formula 1 car.
 
 If a car leaves the prototype asphalt and falls, press **СБРОС**. Errors are useful here: the purpose is to expose missing road geometry before promotion to the private game.
+
+See [docs/ADDED_CIRCUITS.md](docs/ADDED_CIRCUITS.md) for all nine new circuits, source identifiers, and important limitations. Sepang was already present in the original 23, so it has not been duplicated.
 
 ## Android APK
 
 Open **Actions → Build Track Lab Android APK → most recent successful run**, then download artifact **APEX-GRID-Track-Lab-Android-APK**. The workflow performs atlas/geometry/UI checks and builds a debug-signed Android ARM64 APK. It also publishes a separate prerelease with a directly downloadable APK when permissions permit.
 
-Install this preview alongside the main game: Android package is `com.apexgrid.tracklab`, distinct from the private game.
+The original preview and this preview use different Android debug signing keys, so the 32-track build uses a **new package ID** to avoid an installation/signature conflict. Install it alongside the main game: Android package is `com.apexgrid.tracklab.exp32`, distinct from the private game.
 
 **No passwords, SSH keys, GitHub tokens, production keystores or production assets are required.** CI uses a generated debug signing key and official Godot 4.4.1 export templates.
 

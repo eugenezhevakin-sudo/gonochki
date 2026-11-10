@@ -17,7 +17,18 @@ func _execute() -> void:
     var data: Dictionary = Atlas.load_data()
     var list: Array = Atlas.records()
     _expect(int(data.get("schema_version", 0)) == 1, "atlas schema version")
-    _expect(list.size() == 23 and int(data.get("track_count", 0)) == 23, "all 23 circuits")
+    _expect(list.size() == 32 and int(data.get("track_count", 0)) == 32, "all 32 circuits")
+    var expected_new := ["jeddah_gp", "portimao_gp", "estoril_gp",
+        "istanbul_park_gp", "paul_ricard_gp", "magny_cours_gp",
+        "hockenheimring_gp", "nurburgring_gp", "sochi_autodrom_gp"]
+    for added_id in expected_new:
+        var found: Dictionary = Atlas.get_track(added_id)
+        _expect(not found.is_empty(), "new circuit: " + added_id)
+        if not found.is_empty():
+            var synthetic_pit: Dictionary = found.get("pit", {})
+            _expect(bool(synthetic_pit.get("approximate", false)),
+                added_id + " flags synthetic pit geometry")
+    _expect(not Atlas.get_track("sepang_gp").is_empty(), "original Malaysia track retained")
     var seen := {}
     for raw in list:
         var item: Dictionary = raw

@@ -176,8 +176,10 @@ func change_mode(next_mode: String) -> void:
     if record.is_empty():
         return
     var length_km: float = float(record.get("length_m", 0)) / 1000.0
-    info.text = "%s   |   %.3f км   |   23 схемы · 23 пит-лейна · предварительные данные" % [
-        str(record.get("name", "")), length_km]
+    var pit_info: Dictionary = record.get("pit", {})
+    var pit_status: String = "ПИТ: УСЛОВНЫЙ" if bool(pit_info.get("approximate", false)) else "ПИТ: НЕ ПРОВЕРЕН"
+    info.text = "%s   |   %.3f км   |   %d трассы   |   %s" % [
+        str(record.get("name", "")), length_km, chooser.item_count, pit_status]
     map_view.visible = mode == "map"
     scene_panel.visible = mode != "map"
     controls.visible = mode == "drive"
